@@ -1,84 +1,78 @@
-import requests # Biblioteca para fazer requisições HTTP
-import pandas as pd # Biblioteca para manipulação de dados
-from google.oauth2 import service_account # Para autenticar no Google Cloud
-from datetime import datetime # Para trabalhar com datas
+import os
+import requests
+import pandas as pd
+from google.oauth2 import service_account
+import uuid
+from dotenv import load_dotenv
 
-# --- 1. CONFIGURAÇÕES E CREDENCIAIS ---
+# --- 1. CARREGAR CONFIGURAÇÕES ---
+load_dotenv() # Carrega a chave da API do arquivo .env
+
 PROJETO_ID = 'portfolio-data-eng'
-TABELA_DESTINO = 'raw_data.bitcoin_prices'
+TABELA_DESTINO = 'raw_data.bitcoin_prices_bronze'
 CAMINHO_CHAVE = 'service_account.json'
 
-# Autenticação com o Google Cloud
+# Autenticação Google
 credentials = service_account.Credentials.from_service_account_file(CAMINHO_CHAVE)
 
 # --- 2. EXTRAÇÃO (EXTRACT) ---
 def extrair_dados():
-    """
-    Busca os últimos 30 dias de preços. 
-    Nota: Removemos o 'interval' pois o plano gratuito já entrega dados de hora em hora.
-    """
+    """Busca histórico de 30 dias na CoinGecko usando chave do .env"""
     print("Buscando histórico de 30 dias na CoinGecko...")
     
-    url_historica = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
+    url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
+    params = {"vs_currency": "usd", "days": "30"}
     
-    params = {
-        'vs_currency': 'usd',
-        'days': '30'
-    }
+    # Pegando a chave do ambiente para segurança
+    api_key = os.getenv("COINGECKO_API_KEY")
     
     headers = {
         "accept": "application/json",
-        "x-cg-demo-api-key": "CG-tnZUiQuosntNxF68CBTD1yER" 
+        "x-cg-demo-api-key": api_key
     }
-    
-    resposta = requests.get(url_historica, params=params, headers=headers)
-    
-    if resposta.status_code == 200:
-        return resposta.json()['prices']
-    else:
-        raise Exception(f"Erro ao acessar API: {resposta.status_code} - {resposta.text}")
 
-# --- 3. TRANSFORMAÇÃO INICIAL (TRANSFORM) ---
+    response = requests.get(url, params=params, headers=headers)
+
+    if response.status_code == 200:
+        return response.json()["prices"]
+    else:
+        raise Exception(f"Erro na API: {response.status_code} - {response.text}")
+
+# --- 3. TRANSFORMAÇÃO MÍNIMA (BRONZE) ---
 def preparar_dataframe(dados_brutos):
-    """ Transforma a lista da API em uma tabela organizada. """
-    df = pd.DataFrame(dados_brutos, columns=['timestamp_ms', 'preco_usd'])
-    
-    # Conversão de milissegundos para data real
-    df['data_referencia'] = pd.to_datetime(df['timestamp_ms'], unit='ms')
-    
-    # Adicionando metadados de controle
-    df['moeda'] = 'Bitcoin'
-    df['run_timestamp'] = pd.Timestamp.now() 
-    
-    # Seleção final das colunas
-    df = df[['moeda', 'preco_usd', 'data_referencia', 'run_timestamp']]
-    return df
+    """Organiza os dados brutos com metadados de controle"""
+    df = pd.DataFrame(dados_brutos, columns=["price_timestamp_ms", "price"])
+
+    # Conversão técnica
+    df["price_timestamp"] = pd.to_datetime(df["price_timestamp_ms"], unit="ms", utc=True)
+
+    # Metadados de linhagem (Data Lineage)
+    df["asset_id"] = "bitcoin"
+    df["currency"] = "usd"
+    df["ingestion_timestamp"] = pd.Timestamp.utcnow()
+    df["run_id"] = str(uuid.uuid4())
+    df["source"] = "coingecko_api"
+
+    return df[["asset_id", "currency", "price", "price_timestamp", "ingestion_timestamp", "run_id", "source"]]
 
 # --- 4. CARGA (LOAD) ---
 def carregar_no_bigquery(df):
-    """ Envia o DataFrame final para o BigQuery. """
-    print(f"\nEnviando {len(df)} linhas para o BigQuery ({TABELA_DESTINO})...")
-    
+    """Envia para a Bronze no BigQuery"""
+    print(f"\nEnviando {len(df)} registros para {TABELA_DESTINO}...")
+
     df.to_gbq(
         destination_table=TABELA_DESTINO,
         project_id=PROJETO_ID,
         credentials=credentials,
-        if_exists='append' # Anexa novos registros sem sobrescrever
+        if_exists="append",
     )
-    print("Sucesso! Carga histórica concluída. ☁️")
+    print("Carga Bronze concluída com sucesso ☁️")
 
-# --- 5. EXECUÇÃO DO PIPELINE (O FORNO) ---
-# Este bloco é ESSENCIAL para o script rodar!
+# --- 5. EXECUÇÃO ---
 if __name__ == "__main__":
     try:
-        # 1. Busca os dados
-        precos_brutos = extrair_dados()
-        
-        # 2. Organiza os dados
-        df_pronto = preparar_dataframe(precos_brutos)
-        
-        # 3. Envia para a nuvem
-        carregar_no_bigquery(df_pronto)
-        
-    except Exception as e:
-        print(f"Ocorreu um erro no pipeline: {e}")
+        dados = extrair_dados()
+        df_bronze = preparar_dataframe(dados)
+        carregar_no_bigquery(df_bronze)
+    except Exception as erro:
+        print(f"Erro: {erro}")
