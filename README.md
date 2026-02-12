@@ -1,85 +1,73 @@
-₿ Bitcoin Data Pipeline: De APIs a Insights de Negócio
-Este projeto demonstra a implementação de um ecossistema completo de dados utilizando a Arquitetura Medallion (Bronze, Silver e Gold). O objetivo é capturar, tratar e analisar a volatilidade do Bitcoin, garantindo a observabilidade do pipeline e a entrega de métricas financeiras prontas para decisão.
+# ☁️ Cloud Data Pipeline: CoinGecko to BigQuery
 
-🚀 Visão Geral da Arquitetura
-O pipeline foi desenhado seguindo as melhores práticas de Data Lakehouse, utilizando o Google Cloud Platform (GCP) como infraestrutura central.
+![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-Platform-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
+![BigQuery](https://img.shields.io/badge/BigQuery-Data_Warehouse-669DF6?style=for-the-badge&logo=google-bigquery&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
 
-Camada Bronze (Raw): Ingestão de dados brutos diretamente da API Coingecko para o BigQuery via Python.
+## 📋 Visão Geral do Projeto
+Este projeto consiste em um pipeline de Engenharia de Dados **end-to-end** que consome dados da API pública da **CoinGecko**, realiza a ingestão em nuvem e estrutura os dados utilizando a **Arquitetura Medalhão (Bronze, Silver e Gold)** no Google BigQuery.
 
-Camada Silver (Cleaned): Processamento e limpeza de dados utilizando SQL. Nesta fase, os dados são tipados, os fusos horários são corrigidos e a integridade é validada.
+O diferencial estratégico deste ecossistema é a implementação de **Data Quality (SLA)** e indicadores financeiros avançados, como médias móveis e envelopes de preço, calculados diretamente no Data Warehouse.
 
-Camada Gold (Curated): Agregação de alto nível para analytics. Implementação de lógicas de negócio como Preço de Fechamento e Médias Móveis.
-+1
+---
 
-🛠️ Tecnologias Utilizadas
-Linguagens: Python (Extração e Frontend), SQL (Transformações no BigQuery).
+## 🏗️ Arquitetura da Solução
+O pipeline segue o padrão **ELT (Extract, Load, Transform)**, priorizando a performance do BigQuery para transformações pesadas.
 
+```mermaid
+graph LR
+    A[📡 API CoinGecko] -->|JSON/Extract| B(🐍 Python Script)
+    B -->|Load Raw| C[(🗄️ BigQuery Bronze)]
+    
+    subgraph Data Warehouse [Google BigQuery]
+        C -->|SQL Cleaning| D[(🥈 Silver Layer)]
+        D -->|SQL Aggregation| E[(🥇 Gold Layer)]
+    end
 
-Data Warehouse: Google BigQuery.
+    E -->|Analytics| F[📊 Streamlit Dashboard]
+    
+    style C fill:#cd7f32,stroke:#333,stroke-width:2px,color:white
+    style D fill:#c0c0c0,stroke:#333,stroke-width:2px,color:black
+    style E fill:#ffd700,stroke:#333,stroke-width:2px,color:black
 
+```
 
-Visualização: Streamlit e Plotly.
-+1
+📈 Resultados e Observabilidade
+1. Monitoramento de SLA (Data Quality)
+O pipeline utiliza um monitor de SLA (Service Level Agreement) que valida se o alvo de 24 coletas diárias foi atingido.
 
-Infraestrutura: GitHub Codespaces e Google Cloud Service Accounts.
+Auditoria Visual: O sistema identifica falhas de ingestão (barras fora do padrão), permitindo a correção imediata do fluxo.
 
-📈 Resultados do Projeto
-1. Observabilidade do Pipeline (Camada Silver)
-Foco em Engenharia de Dados e saúde do sistema.
+2. Entrega da Camada Gold (Business Intelligence)
+A Camada Gold (gold_bitcoin_daily_metrics) consolida os dados para o usuário final, calculando métricas de tendência e volatilidade.
 
+Métricas: Inclui Preço de Fechamento, Média Móvel (7d) e Envelope de Preços.
 
-Monitoramento de SLA: Verificação visual da constância de ingestão com meta de 24 coletas diárias.
-+1
+<div align="center">
 
+<h1>Hi there, I'm Luis Henrique 👋</h1>
+<h3>Data Engineer | Analytics | Cloud</h3>
 
-Auditoria de Amostra: Rastreabilidade total da origem e timestamp dos dados processados.
+<p><em>"Transformando dados brutos em insights acionáveis através de engenharia robusta."</em></p>
 
+<p>
+<a href="https://linkedin.com/in/luis-henrique-dos-ribeiro-991aa8250">
+<img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/>
+</a>
+</p>
 
-KPIs de Integridade: Registro de volumes consistentes de coletas para garantir a confiabilidade analítica.
-+2
+</div>
 
-2. Análise de Ouro (Camada Gold)
-Foco em Business Intelligence e performance.
-+1
+🛠️ Diferenciais Técnicos
+Arquitetura Medallion: Separação clara entre dados brutos e curados.
 
+SQL Analytics: Uso de Window Functions para análise de séries temporais.
 
-Média Móvel: Indicador calculado diretamente no BigQuery para suavizar ruídos de mercado.
-+2
+Observabilidade: Foco total em qualidade e disponibilidade do dado.
 
+### 1. Monitoramento de SLA (Data Quality)
+![Saúde do Pipeline](img/pipeline-health.png)
 
-Envelope de Volatilidade: Visualização de preços Máximos, Mínimos e Médios para análise de risco diário.
-+1
-
-
-Preço de Fechamento: Captura do valor exato de encerramento do dia, essencial para análises financeiras.
-+1
-
-💡 Diferenciais Técnicos
-
-Pensamento Analítico: O projeto não apenas move dados; ele implementa métricas financeiras reais como o Preço de Fechamento.
-
-
-Foco em Qualidade: Implementação de alertas visuais de SLA — o dashboard indica automaticamente se houve falha na ingestão de dados.
-+1
-
-
-Eficiência de Custos: Uso de Views agregadas na Gold, reduzindo o processamento e custos de consulta no BigQuery.
-
-📂 Como Executar
-Clone o repositório.
-
-Configure suas credenciais do Google Cloud no arquivo service_account.json.
-
-Ative o ambiente virtual: source .venv/bin/activate.
-
-Execute o dashboard: streamlit run gold_dashboard_analytics.py.
-
-📬 Contato
-Caso queira discutir este projeto ou oportunidades em Engenharia de Dados, fique à vontade para entrar em contato:
-
-LinkedIn: Luis Henrique dos Ribeiro
-
-GitHub: Henrique416148/cloud-data-pipeline
-
-Desenvolvido por Henrique – Engenheiro de Dados focado em arquiteturas escaláveis e qualidade de dados.
-
+### 2. Entrega da Camada Gold (Business Intelligence)
+![Visualização Gold](img/gold-analysis.png)
