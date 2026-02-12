@@ -11,126 +11,126 @@
 
 Este projeto implementa um **pipeline de Engenharia de Dados end-to-end**, responsável por consumir dados da API pública da **CoinGecko**, realizar ingestão em nuvem e estruturar os dados seguindo a **Arquitetura Medalhão (Bronze, Silver e Gold)** no **Google BigQuery**.
 
-O foco principal do projeto é demonstrar:
+O foco principal é demonstrar:
+
 - Boas práticas de **engenharia analítica**
 - Uso de **ELT em Data Warehouse**
-- **Qualidade e observabilidade dos dados**
-- Aplicação de **métricas financeiras reais** para análise de mercado cripto
+- **Qualidade, rastreabilidade e observabilidade dos dados**
+- Aplicação de **métricas financeiras reais** para análise do mercado cripto
 
 ---
 
 ## 🏗️ Arquitetura da Solução
 
-O pipeline segue o padrão **ELT (Extract, Load, Transform)**, priorizando o BigQuery para transformações pesadas e escaláveis.
+O pipeline segue o padrão **ELT (Extract, Load, Transform)**, priorizando o BigQuery para transformações analíticas pesadas e escaláveis.
 
 ```mermaid
-graph LR
-    A[API CoinGecko] -->|Extract JSON| B[Python Ingestion]
-    B -->|Load Raw Data| C[(BigQuery Bronze)]
-    
-    subgraph BigQuery Data Warehouse
-        C -->|SQL Cleaning & Validation| D[(Silver Layer)]
-        D -->|SQL Analytics & Aggregations| E[(Gold Layer)]
-    end
+flowchart LR
+    A[CoinGecko API]
+    B[Python Ingestion]
+    C[BigQuery Bronze]
+    D[BigQuery Silver]
+    E[BigQuery Gold]
+    F[Streamlit Dashboard]
 
-    E -->|Consumption| F[Streamlit Dashboard]
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
 
-    style C fill:#cd7f32,stroke:#333,stroke-width:2px,color:white
-    style D fill:#c0c0c0,stroke:#333,stroke-width:2px,color:black
-    style E fill:#ffd700,stroke:#333,stroke-width:2px,color:black
 ```
 
-### 1. Monitoramento de SLA (Data Quality)
+### 🧩 Detalhamento das Etapas do Pipeline
+
+A arquitetura foi desenhada para garantir **idempotência, rastreabilidade e performance**. Cada camada do Data Warehouse cumpre um papel específico na governança do dado:
+
+#### 📥 1. Camada Bronze (Raw Data)
+*Responsável pela ingestão bruta e histórico imutável.*
+- **Fonte:** Extração automatizada via Script Python (`requests`).
+- **Destino:** Tabela particionada no BigQuery.
+- **Estratégia:** *Append-Only*. Todo dado recebido é gravado com um carimbo de tempo (`ingestion_timestamp`), permitindo auditoria completa e reprocessamento histórico caso necessário.
+
+#### 🛠️ 2. Camada Silver (Cleansed & Refined)
+*Responsável pela limpeza, deduplicação e padronização.*
+- **Tecnologia:** SQL (BigQuery Views).
+- **Transformações:**
+  - Remoção de duplicatas utilizando **Window Functions** (`ROW_NUMBER()`).
+  - Conversão de tipos de dados (Casting) para formatos nativos do BigQuery.
+  - Tratamento de valores nulos e *Data Quality Checks* básicos.
+- **Resultado:** Dados confiáveis e prontos para análise granular.
+
+#### 🏆 3. Camada Gold (Business Aggregates)
+*Responsável pelas métricas de negócio e KPIs.*
+- **Foco:** Performance analítica.
+- **Lógica:** Agregações diárias para responder perguntas de negócio.
+- **Métricas Geradas:**
+  - Preço Médio Diário (VWAP simplificado).
+  - Volatilidade Intraday (Min/Max).
+  - Volumetria de registros (Monitoramento de consistência).
+
+#### 📊 4. Visualização (Data Viz)
+*Interface final para stakeholders e tomada de decisão.*
+- **Ferramenta:** **Streamlit** (Python).
+- **Funcionalidade:** Conecta diretamente à camada **Gold** do BigQuery para plotar gráficos de tendência e tabelas analíticas, democratizando o acesso aos dados processados.
+
+---
+
+![Visualização Gold](img/gold-analysis.png)
 ![Saúde do Pipeline](img/pipeline-health.png)
 
-🧱 Camadas de Dados (Medallion)
-🟤 Bronze — Raw
 
-Dados exatamente como retornados pela API.
+## 🚀 Diferenciais Técnicos
 
-Schema mínimo e metadados: asset_id, currency, price, price_timestamp, ingestion_timestamp, run_id, source.
+O projeto adota práticas modernas de Engenharia de Dados:
 
-if_exists='append' para preservar histórico.
+* ✅ **Arquitetura ELT:** Processamento pesado delegado ao *engine* do BigQuery, reduzindo custos de computação local.
+* ✅ **Governança de Dados:** Separação lógica clara entre dados brutos, tratados e refinados.
+* ✅ **Idempotência:** O pipeline pode ser executado múltiplas vezes sem duplicar dados na visão final.
+* ✅ **Cloud Native:** Utilização de serviços gerenciados (Serverless) para escalabilidade automática.
 
-⚪ Silver — Curado (View)
+---
 
-Deduplicação (ex.: ROW_NUMBER() por asset_id, currency, price_timestamp ordenando por ingestion_timestamp DESC).
+## 🛠️ Stack Tecnológico
 
-Padronização (casing, tipos, UTC).
+| Categoria | Tecnologia | Uso no Projeto |
+| :--- | :--- | :--- |
+| **Linguagem** | ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white) | Script de extração e App de Visualização |
+| **Cloud** | ![Google Cloud](https://img.shields.io/badge/Google_Cloud-4285F4?style=flat-square&logo=google-cloud&logoColor=white) | Plataforma de Nuvem |
+| **Warehouse** | ![BigQuery](https://img.shields.io/badge/BigQuery-669DF6?style=flat-square&logo=google-bigquery&logoColor=white) | Armazenamento e Processamento SQL |
+| **Dashboard** | ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white) | Front-end de Dados |
+| **Controle** | ![Git](https://img.shields.io/badge/Git-F05032?style=flat-square&logo=git&logoColor=white) | Versionamento de Código |
 
-Validações básicas (price > 0).
+---
 
-🟡 Gold — Agregado (Tabela)
+## 📈 Insights de Negócio
 
-Agregações prontas para consumo (diárias / horárias).
+Além da engenharia, o projeto entrega valor analítico respondendo a perguntas como:
+1.  *Qual a tendência de preço do Bitcoin nos últimos 30 dias?*
+2.  *Qual foi a volatilidade (diferença entre mínima e máxima) de ontem?*
+3.  *O pipeline de dados sofreu alguma queda de volumetria recentemente?*
 
-Indicadores financeiros (média móvel 7d, volatilidade 7d, price close).
+---
 
-Tabela materializada / particionada para performance.
-
-### 2. Entrega da Camada Gold (Business Intelligence)
-![Visualização Gold](img/gold-analysis.png)
-
-📈 Observabilidade & Data Quality (exemplos)
-
-SLA de ingestão: meta de 24 coletas/dia. Validar counts por dia.
-
-Checks principais: price NULL, price <= 0, timestamps nulos, lacunas por dia.
-
-Auditoria: run_id e ingestion_timestamp para reprocessamento / investigação.
-
-
-🧭 Como Rodar o Projeto (exemplo rápido)
-
-Pré-requisitos: Python 3.9+, gcloud CLI autenticado, conta GCP com BigQuery habilitado.
+## ⚙️ Como Executar Localmente
 
 
-# 1. Clone o repositório:
+```bash
+# 1. Clone o repositório
+git clone [https://github.com/Henrique416148/cloud-data-pipeline.git](https://github.com/Henrique416148/cloud-data-pipeline.git)
 
-git clone https://github.com/Henrique416148/cloud-data-pipeline.git
-cd cloud-data-pipeline
+# 2. Instale as dependências
+pip install -r requirements.txt
 
-# 2. Crie um ambiente virtual e instale as dependências:
+# 3. Configure as credenciais do GCP (Service Account)
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/key.json"
 
-`python -m venv .venv
-source .venv/bin/activate`  
-# macOS / Linux
-`.venv\Scripts\activate`    
-# Windows
-`pip install -r requirements.txt`
+# 4. Execute a ingestão
+python src/ingestion.py
 
-# 3. Configure credenciais:
-
-Crie um Service Account no GCP com permissão para BigQuery.
-
-Baixe a chave JSON e adicione em `.gitignore`
-
-Exporte a variável de ambiente:
-
-`export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service_account.json"`
-
-# 4. Rodar a ingestão local (exemplo):
-
-`python ingest_btc.py`
-
-# 5. Validar dados no BigQuery:
-
-SELECT COUNT(*) FROM `seu-projeto.raw_data.bitcoin_prices_bronze`;
-
-✅ Boas práticas demonstradas
-
-Separação de responsabilidades entre ingestão (Python) e transformação (BigQuery SQL)
-
-Uso de IDs de execução (run_id) e ingestion_timestamp para rastreabilidade
-
-Deduplicação na Silver via ROW_NUMBER() e QUALIFY
-
-Documentação clara e orientada a produto
-
-📂 Repositórios & Links
-
-Repositório principal: https://github.com/Henrique416148/cloud-data-pipeline
+# 5. (Opcional) Rode o dashboard
+streamlit run src/app.py
+```
 
 👋 Sobre Mim
-<div align="center"> <h2>Luis Henrique</h2> <h4>Data Engineer | Analytics | Cloud</h4> <p><em>"Transformando dados brutos em insights acionáveis através de engenharia robusta."</em></p> <p> <a href="https://linkedin.com/in/luis-henrique-dos-ribeiro-991aa8250"> <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/> </a> </p> </div>
-
+<div align="center"> <h2>Luis Henrique</h2> <h4>Data Engineer | Analytics | Cloud</h4> <p><em>"Transformando dados brutos em insights acionáveis através de engenharia robusta."</em></p> <p> <a href="https://linkedin.com/in/luis-henrique-dos-ribeiro-991aa8250"> <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white"/> </a> </p> </div> ```
